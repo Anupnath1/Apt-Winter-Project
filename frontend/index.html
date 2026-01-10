@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>APT Security Scanner</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="container">
+    <h1>APT Security Scanner</h1>
+
+    <div class="scan-box">
+        <input
+            type="text"
+            id="targetUrl"
+            placeholder="Enter target URL (https://example.com)"
+        />
+
+        <div class="scan-type">
+            <button class="scan-option active" data-type="passive">
+                Passive Scan
+            </button>
+            <button class="scan-option" data-type="active">
+                Active Scan
+            </button>
+        </div>
+
+        <button id="scanBtn">Start Scan</button>
+
+
+    <div id="filterBox" class="hidden">
+        <label>Filter by Risk:</label>
+        <select id="riskFilter">
+            <option value="ALL">All</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+            <option value="INFO">Informational</option>
+        </select>
+    </div>
+
+    <div id="results"></div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
