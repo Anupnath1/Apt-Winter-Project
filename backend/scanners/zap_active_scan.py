@@ -5,42 +5,69 @@ import os
 import logging
 from dotenv import load_dotenv
 
-from utils.zap_manager import start_zap
-
 load_dotenv()
+
+# --------------------------------------------------
+# Configuration
+# --------------------------------------------------
 
 ZAP_PROXY = os.getenv("ZAP_PROXY", "http://127.0.0.1:8080")
 ZAP_API_KEY = os.getenv("ZAP_API_KEY", "")
-SCAN_TIMEOUT = int(os.getenv("ZAP_ACTIVE_TIMEOUT", "900"))
+SCAN_TIMEOUT = int(os.getenv("ZAP_ACTIVE_TIMEOUT", "900"))  # 15 minutes
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+zap = ZAPv2(
+    apikey=ZAP_API_KEY or None,
+    proxies={
+        "http": ZAP_PROXY,
+        "https": ZAP_PROXY,
+    }
+)
 
-def _wait_for_active_scan(zap, scan_id: str):
+def _wait_for_active_scan(scan_id: str):
+    """Wait until active scan completes or timeout occurs"""
     start = time.time()
+
     while True:
         status = int(zap.ascan.status(scan_id))
+
         if status >= 100:
             return
+
         if time.time() - start > SCAN_TIMEOUT:
             raise TimeoutError("Active scan timeout exceeded")
+
         time.sleep(5)
 
 
-def _run_spider(zap, target_url: str):
+def _run_spider(target_url: str):
+
+    logger.info("Starting traditional spider")
+
     spider_id = zap.spider.scan(target_url)
+
     while int(zap.spider.status(spider_id)) < 100:
         time.sleep(2)
 
+    logger.info("Traditional spider completed")
 
-def _run_ajax_spider(zap, target_url: str):
+
+def _run_ajax_spider(target_url: str):
+
+    logger.info("Starting AJAX Spider")
+
     zap.ajaxSpider.scan(target_url)
-    while zap.ajaxSpider.status() == "running":
+
+    while zap.ajaxSpider.status == "running":
         time.sleep(5)
+
+    logger.info("AJAX Spider completed")
 
 
 def _format_alert(alert: Dict[str, Any]) -> Dict[str, Any]:
+
     return {
         "name": alert.get("alert"),
         "risk": alert.get("risk"),
@@ -57,14 +84,14 @@ def _format_alert(alert: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def enable_native_active_rules(zap):
-    try:
-        zap.ascan.enable_all_scanners()
-    except Exception:
-        pass
+def enable_native_active_rules():
+    zap.ascan.enable_all_scanners()
 
 
 def run_active_scan(target_url: str) -> Dict[str, Any]:
+
+    logger.warning(f"ACTIVE SCAN STARTED: {target_url}")
+
     results: Dict[str, Any] = {
         "target": target_url,
         "scan_type": "active",
@@ -79,36 +106,28 @@ def run_active_scan(target_url: str) -> Dict[str, Any]:
     }
 
     try:
-        if not start_zap():
-            raise RuntimeError("OWASP ZAP is not running")
-
-        zap = ZAPv2(
-            apikey=ZAP_API_KEY or None,
-            proxies={
-                "http": ZAP_PROXY,
-                "https": ZAP_PROXY,
-            }
-        )
-
         zap.urlopen(target_url)
         time.sleep(2)
 
-        _run_spider(zap, target_url)
-        _run_ajax_spider(zap, target_url)
+        _run_spider(target_url)
 
-        enable_native_active_rules(zap)
+        _run_ajax_spider(target_url)
+
+        enable_native_active_rules()
 
         scan_id = zap.ascan.scan(target_url)
-        _wait_for_active_scan(zap, scan_id)
+        _wait_for_active_scan(scan_id)
 
         alerts = zap.core.alerts(baseurl=target_url)
         seen_alerts = set()
 
         for alert in alerts:
-            name = alert.get("alert")
-            if name in seen_alerts:
+            alert_name = alert.get("alert")
+
+            if alert_name in seen_alerts:
                 continue
-            seen_alerts.add(name)
+
+            seen_alerts.add(alert_name)
 
             formatted = _format_alert(alert)
             results["alerts"].append(formatted)
@@ -119,9 +138,18 @@ def run_active_scan(target_url: str) -> Dict[str, Any]:
             else:
                 results["summary"]["info"] += 1
 
+        logger.info(
+            f"Active scan completed | "
+            f"H:{results['summary']['high']} "
+            f"M:{results['summary']['medium']} "
+            f"L:{results['summary']['low']} "
+            f"I:{results['summary']['info']}"
+        )
+
         return results
 
     except Exception as exc:
+        logger.error("Active scan failed", exc_info=True)
         return {
             "target": target_url,
             "scan_type": "active",

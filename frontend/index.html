@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APT Security Scanner</title>
     <link rel="stylesheet" href="styles.css" />
 </head>
@@ -14,7 +15,7 @@
         <input
             type="text"
             id="targetUrl"
-            placeholder="Enter target URL (https://example.com)"
+            placeholder="Enter target URL (e.g., https://example.com)"
         />
 
         <div class="scan-type">
@@ -27,12 +28,13 @@
         </div>
 
         <button id="scanBtn">Start Scan</button>
+    </div>
 
-
-    <div id="filterBox" class="hidden">
-        <label>Filter by Risk:</label>
-        <select id="riskFilter">
-            <option value="ALL">All</option>
+    <div id="filterBox" class="hidden" style="margin-top: 20px; padding: 10px; background: #1e293b; border-radius: 5px;">
+        <label for="riskFilter" style="color: white; margin-right: 10px;">Filter by Severity:</label>
+        <select id="riskFilter" style="padding: 5px; border-radius: 4px;">
+            <option value="ALL">Show All</option>
+            <option value="CRITICAL">Critical</option>
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>

@@ -1,103 +1,95 @@
-const scanBtn = document.getElementById("scanBtn");
-const resultsDiv = document.getElementById("results");
-const riskFilter = document.getElementById("riskFilter");
-const filterBox = document.getElementById("filterBox");
+document.addEventListener('DOMContentLoaded', () => {
+    const scanBtn = document.getElementById('scanBtn');
+    const targetInput = document.getElementById('targetUrl');
+    const resultsDiv = document.getElementById('results');
+    const filterBox = document.getElementById('filterBox');
+    const scanOptions = document.querySelectorAll('.scan-option');
 
-let allFindings = [];
+    let currentScanType = 'passive';
+    let currentReport = null;
+    const API_BASE = "http://127.0.0.1:8000";
 
-scanBtn.addEventListener("click", startScan);
-riskFilter.addEventListener("change", applyFilter);
-
-let selectedScanType = "passive";
-
-const scanOptions = document.querySelectorAll(".scan-option");
-
-scanOptions.forEach(btn => {
-    btn.addEventListener("click", () => {
-        scanOptions.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedScanType = btn.dataset.type;
-    });
-});
-
-async function startScan() {
-    const url = document.getElementById("targetUrl").value.trim();
-
-    if (!url) {
-        alert("Please enter a target URL");
-        return;
-    }
-
-    resultsDiv.innerHTML = "Scanning...";
-    filterBox.classList.add("hidden");   // HIDE filter on new scan
-
-    const endpoint =
-        selectedScanType === "passive"
-            ? "http://localhost:8000/scan/passive"
-            : "http://localhost:8000/scan/active";
-
-    try {
-        const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ target: url })
+    scanOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            scanOptions.forEach(b => b.classList.remove('active'));
+            opt.classList.add('active');
+            currentScanType = opt.dataset.type;
+            
+            if (currentReport) {
+                displayResults(currentReport);
+            }
         });
+    });
 
-        const data = await res.json();
+    riskFilter.addEventListener('change', () => {
+        filterResults(riskFilter.value);
+    });
 
-        allFindings = data.report.findings || [];
+    scanBtn.addEventListener('click', async () => {
+        const url = targetInput.value.trim();
+        if (!url) return alert("Please enter a URL");
 
-        renderResults(allFindings);
+        resultsDiv.innerHTML = '<div class="card info">Scanning in progress... please wait.</div>';
+        scanBtn.disabled = true;
 
-        if (allFindings.length > 0) {
-            filterBox.classList.remove("hidden"); 
+        try {
+            const response = await fetch(`${API_BASE}/scan/${currentScanType}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: url })
+            });
+
+            if (!response.ok) throw new Error("Scan failed to start");
+
+            const data = await response.json();
+            currentReport = data.report;
+            displayResults(currentReport);
+
+        } catch (err) {
+            resultsDiv.innerHTML = `<div class="card high">Error: ${err.message}</div>`;
+        } finally {
+            scanBtn.disabled = false;
         }
+    });
 
-    } catch (err) {
-        resultsDiv.innerHTML = "Scan failed";
-        console.error(err);
-    }
-}
-
-
-function renderResults(findings) {
-    resultsDiv.innerHTML = "";
-
-    if (findings.length === 0) {
-        resultsDiv.innerHTML = "No vulnerabilities found";
-        return;
-    }
-
-    findings.forEach(f => {
-        const severity = (f.severity || f.risk || "INFO").toUpperCase();
-
-        const card = document.createElement("div");
-        card.className = `card ${severity.toLowerCase()}`;
-
-        card.innerHTML = `
-            <h3>${f.type || f.name || "Vulnerability"}</h3>
-            <p><b>Severity:</b> ${severity}</p>
-            <p><b>Description:</b> ${f.description || "N/A"}</p>
-            <p><b>Recommendation:</b> ${f.recommendation || "N/A"}</p>
-            <p><b>URL:</b> ${f.url || "N/A"}</p>
+    function displayResults(report) {
+        filterBox.classList.remove('hidden');
+        riskFilter.value = 'ALL';
+        
+        let summaryHtml = `
+            <div class="card info" style="border-left-color: #2563eb;">
+                <h2>Scan Complete: ${report.meta.target}</h2>
+                <p>Risk Level: <strong>${report.meta.risk_level}</strong></p>
+                <div style="display:flex; gap:15px; margin-top:10px;">
+                    <span style="color:#dc2626">High: ${report.summary.HIGH}</span>
+                    <span style="color:#f59e0b">Medium: ${report.summary.MEDIUM}</span>
+                    <span style="color:#22c55e">Low: ${report.summary.LOW}</span>
+                </div>
+            </div>
         `;
 
-        resultsDiv.appendChild(card);
-    });
-}
+        const findings = currentScanType === 'passive' 
+            ? report.scans.passive.findings 
+            : report.scans.active.findings;
 
-function applyFilter() {
-    const level = riskFilter.value;
+        if (findings.length === 0) {
+            resultsDiv.innerHTML = summaryHtml + '<div class="card">No vulnerabilities found in this category.</div>';
+            return;
+        }
 
-    if (level === "ALL") {
-        renderResults(allFindings);
-        return;
+        let cardsHtml = findings.map(f => {
+            const sevClass = (f.severity || 'info').toLowerCase();
+            return `
+                <div class="card ${sevClass}">
+                    <h3>${f.name}</h3>
+                    <p><strong>Type:</strong> ${f.type}</p>
+                    <p><strong>Severity:</strong> ${f.severity}</p>
+                    <p><strong>Evidence:</strong> <code style="background:#333; padding:2px 4px; border-radius:3px;">${f.evidence || 'N/A'}</code></p>
+                    <p><strong>Fix:</strong> ${f.recommendation}</p>
+                </div>
+            `;
+        }).join('');
+
+        resultsDiv.innerHTML = summaryHtml + cardsHtml;
     }
-
-    const filtered = allFindings.filter(f => {
-        const sev = (f.severity || f.risk || "INFO").toUpperCase();
-        return sev === level;
-    });
-
-    renderResults(filtered);
-}
+});
