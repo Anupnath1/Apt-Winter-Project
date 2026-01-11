@@ -4,12 +4,12 @@ from pydantic import BaseModel, HttpUrl
 from typing import Dict, Any
 import asyncio
 
-from scanners.headers_scan import scan_headers
-from scanners.api_key_scan import scan_api_keys
-from scanners.data_leak_scan import scan_data_leaks
-from scanners.zap_active_scan import run_active_scan
-from report_generator import generate_report_for_frontend
-from utils.zap_manager import start_zap
+from backend.scanners.headers_scan import scan_headers
+from backend.scanners.api_key_scan import scan_api_keys
+from backend.scanners.data_leak_scan import scan_data_leaks
+from backend.scanners.zap_active_scan import run_active_scan
+from backend.report_generator import generate_report_for_frontend
+from backend.utils.zap_manager import start_zap
 
 app = FastAPI(title="APT Security Scanner API", version="1.0.0")
 
