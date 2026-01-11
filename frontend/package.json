@@ -3,7 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-
   "scripts": {
     "dev": "concurrently \"npm run frontend\" \"npm run backend\"",
     "frontend": "vite --open",
@@ -11,8 +10,8 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "vite": "^7.3.1"
   }
 }

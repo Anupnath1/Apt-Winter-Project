@@ -96,7 +96,7 @@ def scan_headers(target_url: str) -> Dict[str, Any]:
         with httpx.Client(
             follow_redirects=True,
             timeout=10,
-            verify=True
+            verify=False
         ) as client:
             response = client.head(url)
 

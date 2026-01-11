@@ -108,7 +108,7 @@ def scan_text(text: str) -> List[Dict]:
 async def scan_html(url: str) -> Dict:
     _validate_url(url)
 
-    async with httpx.AsyncClient(headers=HEADERS, timeout=HTTP_TIMEOUT) as client:
+    async with httpx.AsyncClient(headers=HEADERS, timeout=HTTP_TIMEOUT, verify=False) as client:
         resp = await client.get(url)
         soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -126,7 +126,7 @@ async def crawl_and_scan(start_url: str) -> Dict:
     queue: List[str] = [start_url]
     results = []
 
-    async with httpx.AsyncClient(headers=HEADERS, timeout=HTTP_TIMEOUT) as client:
+    async with httpx.AsyncClient(headers=HEADERS, timeout=HTTP_TIMEOUT, verify=False) as client:
         while queue and len(visited) < MAX_PAGES:
             url = queue.pop(0)
             if url in visited:
@@ -164,7 +164,8 @@ async def scan_exposed_resources(url: str) -> Dict:
     async with httpx.AsyncClient(
         headers=HEADERS,
         timeout=EXPOSURE_TIMEOUT,
-        follow_redirects=True
+        follow_redirects=True,
+        verify=False
     ) as client:
 
         # Exposed files
@@ -227,6 +228,14 @@ def run_trufflehog(path: str) -> List[Dict]:
         return [json.loads(line) for line in proc.stdout.splitlines() if line]
     except Exception:
         return [{"error": "TruffleHog execution failed"}]
+    
+def extract_raw_secrets(content: str, path: str):
+    """
+    Placeholder secret extractor — prevents crashes.
+    Replace with real logic later if needed.
+    """
+    return []
+
 
 
 def scan_git_repository(repo_path: str) -> Dict:

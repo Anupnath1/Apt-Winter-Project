@@ -174,8 +174,8 @@ def dedupe_findings(findings: List[Dict]) -> List[Dict]:
 async def scan_api_keys(url: str):
     findings = []
     sem = asyncio.Semaphore(CONCURRENCY_LIMIT)
-
-    async with aiohttp.ClientSession() as session:
+    connector = aiohttp.TCPConnector(ssl=False)
+    async with aiohttp.ClientSession(connector=connector) as session:
         html = await fetch(session, url)
         findings.extend(scan_content(html, "HTML"))
 
