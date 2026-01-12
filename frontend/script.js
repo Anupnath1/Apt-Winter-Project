@@ -6,23 +6,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const riskFilter = document.getElementById('riskFilter');
     const scanOptions = document.querySelectorAll('.scan-option');
 
+    const modal = document.getElementById("activeScanModal");
+    const confirmBtn = document.getElementById("confirmActiveScan");
+    const cancelBtn = document.getElementById("cancelActiveScan");
+    
+
     let currentScanType = 'passive';
     let currentReport = null;
     const API_BASE = "http://127.0.0.1:8000";
 
+    let pendingOption = null;
+
+// ensure modal is hidden on load
+    modal.classList.add("hidden");
+
     scanOptions.forEach(opt => {
-        opt.addEventListener('click', () => {
-            scanOptions.forEach(b => b.classList.remove('active'));
-            opt.classList.add('active');
-            currentScanType = opt.dataset.type;
-            
-            if (currentReport) {
-                displayResults(currentReport);
+        opt.addEventListener("click", () => {
+
+            if (opt.classList.contains("active")) return;
+
+            if (opt.dataset.type === "active") {
+                pendingOption = opt;
+                modal.classList.remove("hidden");
+                return;
             }
+
+            activateScan(opt);
         });
     });
 
-    // --- FIX 1: IMPROVED FILTER LOGIC ---
+    confirmBtn.addEventListener("click", () => {
+        if (!pendingOption) return;
+
+        modal.classList.add("hidden");
+
+        scanOptions.forEach(o => o.classList.remove("active"));
+        pendingOption.classList.add("active");
+        currentScanType = "active";
+        
+        pendingOption = null;
+    });
+
+    cancelBtn.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        pendingOption = null;
+    });
+
+    // --- FILTER LOGIC ---
     riskFilter.addEventListener('change', () => {
         const selected = riskFilter.value.toUpperCase(); 
         const cards = document.querySelectorAll('.result-card');
@@ -38,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    // ------------------------------------
+
 
     scanBtn.addEventListener('click', async () => {
         const url = targetInput.value.trim();
@@ -93,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- FIX 2: ADDED URL, IMPACT, AND SOURCE TO HTML ---
         let cardsHtml = findings.map(f => {
             const rawSev = (f.severity || 'INFO').toUpperCase();
             const sevClass = rawSev.toLowerCase();
@@ -113,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }).join('');
-        // ----------------------------------------------------
 
         resultsDiv.innerHTML = summaryHtml + cardsHtml;
     }

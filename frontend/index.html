@@ -1,49 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>APT Security Scanner</title>
-    <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APT Security Scanner</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<div class="container">
-    <h1>APT Security Scanner</h1>
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="logo">APT Security Scanner</div>
+    <div class="nav-actions">
+      <span class="status-badge">Security Dashboard</span>
+    </div>
+  </header>
 
-    <div class="scan-box">
-        <input
-            type="text"
-            id="targetUrl"
-            placeholder="Enter target URL (e.g., https://example.com)"
-        />
+  <!-- Main Content -->
+  <main class="container">
+    <!-- Scan Card -->
+    <section class="card scan-card">
+      <h1>Start New Scan</h1>
+      <p class="subtitle">Find Vulnerabilities of Your</p>
 
-        <div class="scan-type">
-            <button class="scan-option active" data-type="passive">
-                Passive Scan
-            </button>
-            <button class="scan-option" data-type="active">
-                Active Scan
-            </button>
+      <input
+        type="text"
+        id="targetUrl"
+        placeholder="https://example.com"
+        class="input"
+      />
+
+      <div class="scan-type">
+        <button class="scan-option active" data-type="passive">
+          Passive Scan
+        </button>
+        <button class="scan-option" data-type="active">
+          Active Scan
+        </button>
+      </div>
+
+      <button id="scanBtn" class="btn primary">
+        Start Scan
+      </button>
+    </section>
+
+    <!-- Filter -->
+    <section id="filterBox" class="card filter-card hidden">
+      <label for="riskFilter">Filter by Risk</label>
+      <select id="riskFilter">
+        <option value="ALL">Show All</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+        <option value="INFO">Informational</option>
+      </select>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="results-grid"></section>
+  </main>
+
+  <!-- Active Scan Warning Modal -->
+    <div id="activeScanModal" class="modal-overlay hidden">
+    <div class="modal">
+        <h2>Active Scan Warning</h2>
+        <p>
+        Active scanning performs intrusive attacks.<br /><br />
+        Scan only systems you own or have written permission to test.
+        Unauthorized scanning of third-party websites is illegal.
+        </p>
+
+        <div class="modal-actions">
+        <button id="cancelActiveScan" class="btn ghost">Cancel</button>
+        <button id="confirmActiveScan" class="btn primary">Proceed</button>
         </div>
-
-        <button id="scanBtn">Start Scan</button>
+    </div>
     </div>
 
-    <div id="filterBox" class="hidden" style="margin-top: 20px; padding: 10px; background: #1e293b; border-radius: 5px;">
-        <label for="riskFilter" style="color: white; margin-right: 10px;">Filter by Risk:</label>
-        <select id="riskFilter" style="padding: 5px; border-radius: 4px;">
-            <option value="ALL">Show All</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-            <option value="INFO">Informational</option>
-        </select>
-    </div>
 
-    <div id="results"></div>
-</div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
