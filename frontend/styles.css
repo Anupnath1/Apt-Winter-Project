@@ -128,6 +128,21 @@ h1 {
     color: white;
 }
 
+/* Active scan = dangerous action */
+.scan-option.active[data-type="active"] {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+}
+
+/* Hover effect for active scan */
+.scan-option[data-type="active"]:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+}
+
+
 /* ===== Primary Button ===== */
 .btn {
     height: 44px;

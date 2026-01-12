@@ -23,15 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
     scanOptions.forEach(opt => {
         opt.addEventListener("click", () => {
 
-            if (opt.classList.contains("active")) return;
-
-            if (opt.dataset.type === "active") {
+            if (opt.dataset.type === "active" && !opt.classList.contains("active")) {
                 pendingOption = opt;
                 modal.classList.remove("hidden");
                 return;
             }
-
-            activateScan(opt);
+            scanOptions.forEach(o => o.classList.remove("active"));
+            opt.classList.add("active");
+            currentScanType = opt.dataset.type;
         });
     });
 
