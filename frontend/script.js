@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetInput = document.getElementById('targetUrl');
     const resultsDiv = document.getElementById('results');
     const filterBox = document.getElementById('filterBox');
+    const riskFilter = document.getElementById('riskFilter');
     const scanOptions = document.querySelectorAll('.scan-option');
 
     let currentScanType = 'passive';
@@ -21,15 +22,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- FIX 1: IMPROVED FILTER LOGIC ---
     riskFilter.addEventListener('change', () => {
-        filterResults(riskFilter.value);
+        const selected = riskFilter.value.toUpperCase(); 
+        const cards = document.querySelectorAll('.result-card');
+
+        cards.forEach(card => {
+            const severity = card.getAttribute('data-severity'); // This is already Uppercase
+            
+            // Check for exact match OR partial match (e.g., INFO matching INFORMATIONAL)
+            if (selected === "ALL" || severity === selected || severity.includes(selected) || selected.includes(severity)) {
+                card.style.display = "block";
+            } else {
+                card.style.display = "none";
+            }
+        });
     });
+    // ------------------------------------
 
     scanBtn.addEventListener('click', async () => {
         const url = targetInput.value.trim();
         if (!url) return alert("Please enter a URL");
 
         resultsDiv.innerHTML = '<div class="card info">Scanning in progress... please wait.</div>';
+        filterBox.classList.add('hidden');
         scanBtn.disabled = true;
 
         try {
@@ -77,18 +93,27 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- FIX 2: ADDED URL, IMPACT, AND SOURCE TO HTML ---
         let cardsHtml = findings.map(f => {
-            const sevClass = (f.severity || 'info').toLowerCase();
+            const rawSev = (f.severity || 'INFO').toUpperCase();
+            const sevClass = rawSev.toLowerCase();
+            
             return `
-                <div class="card ${sevClass}">
+                <div class="card result-card ${sevClass}" data-severity="${rawSev}">
                     <h3>${f.name}</h3>
                     <p><strong>Type:</strong> ${f.type}</p>
-                    <p><strong>Severity:</strong> ${f.severity}</p>
+                    <p><strong>Severity:</strong> ${rawSev}</p>
+                    
+                    <p><strong>Impact:</strong> ${f.impact || 'No description provided'}</p>
+                    <p><strong>URL:</strong> <a href="${f.url}" target="_blank" style="color: #60a5fa;">${f.url || 'N/A'}</a></p>
+
                     <p><strong>Evidence:</strong> <code style="background:#333; padding:2px 4px; border-radius:3px;">${f.evidence || 'N/A'}</code></p>
                     <p><strong>Fix:</strong> ${f.recommendation}</p>
+                    <p style="font-size: 0.8em; color: #888; margin-top: 10px;">Source: ${f.source || 'Unknown'}</p>
                 </div>
             `;
         }).join('');
+        // ----------------------------------------------------
 
         resultsDiv.innerHTML = summaryHtml + cardsHtml;
     }
