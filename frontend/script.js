@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
             scanOptions.forEach(o => o.classList.remove("active"));
             opt.classList.add("active");
             currentScanType = opt.dataset.type;
+
         });
     });
 
