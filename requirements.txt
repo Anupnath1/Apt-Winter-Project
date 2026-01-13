@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+httpx
+aiohttp
+requests
+beautifulsoup4
+GitPython
+python-dotenv
+python-owasp-zap-v2.4
+selenium
+webdriver-manager
+python-jose
+pymongo
+motor

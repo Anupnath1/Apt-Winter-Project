@@ -164,7 +164,7 @@ def dedupe_findings(findings: List[Dict]) -> List[Dict]:
     unique = []
 
     for f in findings:
-        key = (f["type"], f["value"], f["source"])
+        key = (f["type"], f["value"])
         if key not in seen:
             seen.add(key)
             unique.append(f)
