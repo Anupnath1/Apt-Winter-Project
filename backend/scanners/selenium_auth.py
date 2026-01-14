@@ -36,7 +36,7 @@ class AppConfig:
     USERNAME: str = "IdexApprover"
     PASSWORD: str = "IDEXApp@0424"
     TENANT_VALUE: str = "IDEXDEMO"
-    TENANT_DATA_CY: str = "tenant"   # <-- IMPORTANT
+    TENANT_IDENTIFIER: str = "tenantid" 
     TIMEOUT: int = 30
     HEADLESS: bool = False
 
@@ -55,29 +55,70 @@ class KendoUtils:
         except Exception:
             self.driver.execute_script("arguments[0].click();", element)
 
-    def kendo_search_bar(self, data_cy: str, value: str):
+    def kendo_search_and_select(self, identifier: str, value: str):
         """
-        EXACT Java behaviour:
-        click → type → ENTER
-        Used for Tenant (IDEXDEMO)
+        Handles the Kendo Combobox structure.
+        Fix: Explicitly clicks the arrow button to force the dropdown open.
         """
-        container_xpath = f"//*[@data-cy='{data_cy}']"
-        input_xpath = f"{container_xpath}//input"
+        try:
+            # 1. FIND WRAPPER (kendo-combobox)
+            xpath_locator = (
+                f"//kendo-combobox["
+                f"@id='{identifier}' or "
+                f"@data-cy='{identifier}'"
+                f"]"
+            )
 
-        logger.info("Opening tenant dropdown")
-        container = self.wait.until(
-            EC.visibility_of_element_located((By.XPATH, container_xpath))
-        )
-        self.safe_click(container)
+            logger.info(f"Looking for Kendo Combobox: '{identifier}'")
+            wrapper = self.wait.until(
+                EC.visibility_of_element_located((By.XPATH, xpath_locator))
+            )
+            
+            # 2. OPEN DROPDOWN (Click the arrow button)
+            # Using the class visible in your screenshot: .k-input-button
+            logger.info("Clicking dropdown arrow to force open...")
+            try:
+                arrow_btn = wrapper.find_element(By.CSS_SELECTOR, ".k-input-button")
+                self.safe_click(arrow_btn)
+                time.sleep(0.5) # Wait for animation
+            except Exception:
+                logger.warning("Could not click arrow button, trying input directly.")
 
-        logger.info("Typing tenant value")
-        input_box = self.wait.until(
-            EC.visibility_of_element_located((By.XPATH, input_xpath))
-        )
-        input_box.clear()
-        input_box.send_keys(value)
-        time.sleep(0.5)
-        input_box.send_keys(Keys.ENTER)
+            # 3. FIND INPUT & TYPE
+            input_element = wrapper.find_element(By.TAG_NAME, "input")
+            input_element.clear()
+            logger.info(f"Typing value: {value}")
+            
+            # Type slowly to trigger Kendo events
+            for char in value:
+                input_element.send_keys(char)
+                time.sleep(0.05)
+            
+            # 4. WAIT FOR POPUP (Grid Cells or List Items)
+            # Try both 'gridcell' (standard grid) and 'option' (standard combobox) roles
+            item_xpath = "//*[@role='gridcell' or @role='option']"
+            
+            logger.info("Waiting for dropdown suggestions...")
+            self.wait.until(EC.presence_of_element_located((By.XPATH, item_xpath)))
+            
+            suggestions = self.driver.find_elements(By.XPATH, item_xpath)
+            logger.info(f"Found {len(suggestions)} suggestions.")
+
+            match_found = False
+            for item in suggestions:
+                if item.text.strip() == value:
+                    logger.info(f"Match found: '{item.text}'. Clicking.")
+                    self.safe_click(item)
+                    match_found = True
+                    break
+            
+            if not match_found:
+                logger.warning(f"No exact match found for '{value}'. Pressing ENTER.")
+                input_element.send_keys(Keys.ENTER)
+
+        except Exception as e:
+            logger.error(f"Kendo interaction failed for '{identifier}': {e}")
+            raise
 
 
 # ---------------- MAIN AUTOMATION ----------------
@@ -114,14 +155,18 @@ class DefenderAutomation:
         inputs = self.wait.until(
             lambda d: [i for i in d.find_elements(By.TAG_NAME, "input") if i.is_displayed()]
         )
-        if len(inputs) < 2:
-            raise RuntimeError("Username/Password fields not found")
+        # Filter out the tenant input if it's already visible to ensure we get user/pass
+        login_inputs = [inp for inp in inputs if "tenant" not in inp.get_attribute("outerHTML")]
 
-        inputs[0].clear()
-        inputs[0].send_keys(self.config.USERNAME)
+        if len(login_inputs) < 2:
+            # Fallback
+            login_inputs = inputs
 
-        inputs[1].clear()
-        inputs[1].send_keys(self.config.PASSWORD)
+        login_inputs[0].clear()
+        login_inputs[0].send_keys(self.config.USERNAME)
+
+        login_inputs[1].clear()
+        login_inputs[1].send_keys(self.config.PASSWORD)
 
     def submit_login(self):
         submit_btn = self.wait.until(
@@ -139,9 +184,9 @@ class DefenderAutomation:
             self.bypass_ssl_warning()
             self.fill_credentials()
 
-            # 🔥 THIS IS THE FIX
-            self.kendo.kendo_search_bar(
-                self.config.TENANT_DATA_CY,
+            # Using Updated Kendo Logic
+            self.kendo.kendo_search_and_select(
+                self.config.TENANT_IDENTIFIER,
                 self.config.TENANT_VALUE
             )
 
