@@ -1,10 +1,10 @@
 from dotenv import load_dotenv
-load_dotenv()
-
 import subprocess
 import socket
 import time
 import os
+
+load_dotenv()
 
 ZAP_HOST = os.getenv("ZAP_HOST", "127.0.0.1")
 ZAP_PORT = int(os.getenv("ZAP_PORT", 8080))
@@ -25,13 +25,18 @@ def start_zap():
         return True
 
     if not ZAP_PATH or not os.path.exists(ZAP_PATH):
-        print("[ZAP] Invalid ZAP_PATH")
+        print("[ZAP] Invalid ZAP_PATH. Check your .env file.")
         return False
 
     print("[ZAP] Starting OWASP ZAP...")
 
+    # Added config flags to bypass API security checks (Host header & API Key)
+    # shell=True is used to execute .bat files correctly on Windows
     subprocess.Popen(
-        f'"{ZAP_PATH}" -daemon -host {ZAP_HOST} -port {ZAP_PORT} -config api.disablekey=true',
+        f'"{ZAP_PATH}" -daemon -host {ZAP_HOST} -port {ZAP_PORT} '
+        '-config api.disablekey=true '
+        '-config api.addrs.addr.name=.* '
+        '-config api.addrs.addr.regex=true',
         cwd=os.path.dirname(ZAP_PATH),
         shell=True
     )
