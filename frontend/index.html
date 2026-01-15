@@ -8,7 +8,6 @@
 </head>
 <body>
 
-  <!-- Top Navigation -->
   <header class="navbar">
     <div class="logo">APT Security Scanner</div>
     <div class="nav-actions">
@@ -16,12 +15,10 @@
     </div>
   </header>
 
-  <!-- Main Content -->
   <main class="container">
-    <!-- Scan Card -->
     <section class="card scan-card">
       <h1>Start New Scan</h1>
-      <p class="subtitle">Find Vulnerabilities of Your</p>
+      <p class="subtitle">Find Vulnerabilities of Your System</p>
 
       <input
         type="text"
@@ -29,6 +26,15 @@
         placeholder="https://example.com"
         class="input"
       />
+
+      <div id="authFields" class="hidden auth-container">
+        <p class="subtitle" style="margin-bottom: 12px;">Authentication Config (Optional)</p>
+        <div class="input-group">
+            <input type="text" id="username" placeholder="Username" class="input" />
+            <input type="password" id="password" placeholder="Password" class="input" />
+        </div>
+        <input type="text" id="tenant" placeholder="Tenant ID" class="input" />
+      </div>
 
       <div class="scan-type">
         <button class="scan-option active" data-type="passive">
@@ -44,7 +50,6 @@
       </button>
     </section>
 
-    <!-- Filter -->
     <section id="filterBox" class="card filter-card hidden">
       <label for="riskFilter">Filter by Risk</label>
       <select id="riskFilter">
@@ -56,12 +61,10 @@
       </select>
     </section>
 
-    <!-- Results -->
     <section id="results" class="results-grid"></section>
   </main>
 
-  <!-- Active Scan Warning Modal -->
-    <div id="activeScanModal" class="modal-overlay hidden">
+  <div id="activeScanModal" class="modal-overlay hidden">
     <div class="modal">
         <h2>Active Scan Warning</h2>
         <p>
@@ -76,7 +79,6 @@
         </div>
     </div>
     </div>
-
 
   <script src="script.js"></script>
 </body>

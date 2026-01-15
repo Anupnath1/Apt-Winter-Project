@@ -6,31 +6,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const riskFilter = document.getElementById('riskFilter');
     const scanOptions = document.querySelectorAll('.scan-option');
 
+    // Auth fields
+    const authFields = document.getElementById('authFields');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const tenantInput = document.getElementById('tenant');
+
     const modal = document.getElementById("activeScanModal");
     const confirmBtn = document.getElementById("confirmActiveScan");
     const cancelBtn = document.getElementById("cancelActiveScan");
     
-
     let currentScanType = 'passive';
     let currentReport = null;
     const API_BASE = "http://127.0.0.1:8000";
 
     let pendingOption = null;
 
-// ensure modal is hidden on load
+    // ensure modal is hidden on load
     modal.classList.add("hidden");
 
     scanOptions.forEach(opt => {
         opt.addEventListener("click", () => {
-
+            // If clicking active, show warning
             if (opt.dataset.type === "active" && !opt.classList.contains("active")) {
                 pendingOption = opt;
                 modal.classList.remove("hidden");
                 return;
             }
-            scanOptions.forEach(o => o.classList.remove("active"));
-            opt.classList.add("active");
-            currentScanType = opt.dataset.type;
+            
+            // If switching back to passive
+            if (opt.dataset.type === "passive") {
+                scanOptions.forEach(o => o.classList.remove("active"));
+                opt.classList.add("active");
+                currentScanType = "passive";
+                authFields.classList.add("hidden");
+            }
         });
     });
 
@@ -43,6 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pendingOption.classList.add("active");
         currentScanType = "active";
         
+        // Show auth fields for active scan
+        authFields.classList.remove("hidden");
+
         pendingOption = null;
     });
 
@@ -57,9 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const cards = document.querySelectorAll('.result-card');
 
         cards.forEach(card => {
-            const severity = card.getAttribute('data-severity'); // This is already Uppercase
+            const severity = card.getAttribute('data-severity');
             
-            // Check for exact match OR partial match (e.g., INFO matching INFORMATIONAL)
             if (selected === "ALL" || severity === selected || severity.includes(selected) || selected.includes(severity)) {
                 card.style.display = "block";
             } else {
@@ -77,11 +89,22 @@ document.addEventListener('DOMContentLoaded', () => {
         filterBox.classList.add('hidden');
         scanBtn.disabled = true;
 
+        const payload = { 
+            target: url 
+        };
+
+        // If active scan, attach credentials
+        if (currentScanType === 'active') {
+            payload.username = usernameInput.value.trim() || null;
+            payload.password = passwordInput.value.trim() || null;
+            payload.tenant = tenantInput.value.trim() || null;
+        }
+
         try {
             const response = await fetch(`${API_BASE}/scan/${currentScanType}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target: url })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) throw new Error("Scan failed to start");
