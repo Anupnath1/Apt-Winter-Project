@@ -60,16 +60,19 @@ def generate_report_for_frontend(
                         "source": f"Data Leak ({category})"
                     })
 
+    # UPDATED SECTION: Handle aggregated active scan results
     if active_results and "alerts" in active_results:
         for alert in active_results["alerts"]:
             active_findings.append({
                 "type": "Vulnerability",
-                "name": alert.get("name"),
+                # Aggregation logic uses 'alert' for the name, falling back to 'name' if needed
+                "name": alert.get("alert") or alert.get("name"),
                 "severity": _normalize_severity(alert.get("risk")),
                 "impact": alert.get("description"),
                 "recommendation": alert.get("solution"),
                 "evidence": alert.get("evidence"),
-                "url": alert.get("url"),
+                # Changed 'url' to 'urls' to support the list of URLs from aggregation
+                "urls": alert.get("urls", []), 
                 "source": "OWASP ZAP Active"
             })
 
@@ -81,7 +84,7 @@ def generate_report_for_frontend(
         if sev in summary:
             summary[sev] += 1
         else:
-            summary["INFO"] += 1
+            summary[sev] = 1 # Safety check if severity key missing from default summary
 
     return {
         "meta": {

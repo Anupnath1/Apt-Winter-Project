@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? report.scans.passive.findings 
             : report.scans.active.findings;
 
-        if (findings.length === 0) {
+        if (!findings || findings.length === 0) {
             resultsDiv.innerHTML = summaryHtml + '<div class="card">No vulnerabilities found in this category.</div>';
             return;
         }
@@ -149,6 +149,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawSev = (f.severity || 'INFO').toUpperCase();
             const sevClass = rawSev.toLowerCase();
             
+            // --- NEW: Handle URL List vs Single URL ---
+            let urlSection = '';
+            
+            // Check if 'urls' exists and is a non-empty array (Active Scan)
+            if (f.urls && Array.isArray(f.urls) && f.urls.length > 0) {
+                const urlListItems = f.urls.map(u => 
+                    `<li><a href="${u}" target="_blank">${u}</a></li>`
+                ).join('');
+                
+                urlSection = `
+                    <div style="margin: 10px 0;">
+                        <strong>Affected URLs:</strong>
+                        <ul>${urlListItems}</ul>
+                    </div>
+                `;
+            } else {
+                // Fallback for Passive Scan or Single URL
+                const singleUrl = f.url || 'N/A';
+                urlSection = `<p><strong>URL:</strong> <a href="${singleUrl}" target="_blank" style="color: #60a5fa;">${singleUrl}</a></p>`;
+            }
+
             return `
                 <div class="card result-card ${sevClass}" data-severity="${rawSev}">
                     <h3>${f.name}</h3>
@@ -156,7 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p><strong>Severity:</strong> ${rawSev}</p>
                     
                     <p><strong>Impact:</strong> ${f.impact || 'No description provided'}</p>
-                    <p><strong>URL:</strong> <a href="${f.url}" target="_blank" style="color: #60a5fa;">${f.url || 'N/A'}</a></p>
+                    
+                    ${urlSection}
 
                     <p><strong>Evidence:</strong> <code style="background:#333; padding:2px 4px; border-radius:3px;">${f.evidence || 'N/A'}</code></p>
                     <p><strong>Fix:</strong> ${f.recommendation}</p>
