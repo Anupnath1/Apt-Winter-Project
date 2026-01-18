@@ -268,7 +268,7 @@ class DefenderAutomation:
             except Exception:
                 logger.warning("Timeout waiting for redirect/storage.")
 
-            # --- REQUIRED FOR ZAP: Capture the Tokens ---
+            # Capture the Tokens ---
             time.sleep(5) 
             auth_data["cookies"] = self.driver.get_cookies()
             auth_data["tokens"] = self._dump_all_storage()

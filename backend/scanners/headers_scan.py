@@ -1,10 +1,3 @@
-"""
-headers_scanner.py
-------------------
-OWASP Security Headers Scanner
-
-"""
-
 from typing import Dict, Any
 from urllib.parse import urlparse
 import httpx
@@ -12,14 +5,11 @@ import ssl
 import socket
 import logging
 
-# --------------------------------------------------
 # Logging Configuration
-# --------------------------------------------------
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------
 # OWASP Recommended Security Headers
-# --------------------------------------------------
+
 RECOMMENDED_HEADERS = {
     "Content-Security-Policy": "Protects against XSS and data injection",
     "X-Frame-Options": "Prevents clickjacking",
@@ -29,9 +19,9 @@ RECOMMENDED_HEADERS = {
     "Permissions-Policy": "Restricts browser features",
 }
 
-# --------------------------------------------------
+
 # Helper: URL Validation & Normalization
-# --------------------------------------------------
+
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)
     if not parsed.scheme:
@@ -39,9 +29,9 @@ def normalize_url(url: str) -> str:
     return url
 
 
-# --------------------------------------------------
+
 # Helper: TLS / HTTPS Verification
-# --------------------------------------------------
+
 def verify_tls(url: str) -> Dict[str, Any]:
     result = {
         "https": False,
@@ -77,9 +67,7 @@ def verify_tls(url: str) -> Dict[str, Any]:
     return result
 
 
-# --------------------------------------------------
 # Core Scanner Function
-# --------------------------------------------------
 def scan_headers(target_url: str) -> Dict[str, Any]:
     """
     Main entry point for header scanning

@@ -1,14 +1,3 @@
-"""
-API Key Scanner
-• Full async fetching
-• Inline JS scanning
-• Unlimited JS files (unique only)
-• Recursion for dynamic imports
-• Better patterns + entropy gating
-• Robust error handling/logging
-• Still safe + passive
-"""
-
 import re
 import math
 import asyncio
@@ -18,7 +7,7 @@ from urllib.parse import urljoin, urlparse
 from typing import Dict, List, Set
 
 
-HEADERS = {"User-Agent": "APT-Scanner/2.0"}
+HEADERS = {"User-Agent": "WebScan/2.0"}
 
 CONCURRENCY_LIMIT = 10    # async requests at once
 PUBLIC_KEY_WHITELIST = [
