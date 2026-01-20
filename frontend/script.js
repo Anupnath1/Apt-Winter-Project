@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span style="color:#dc2626">High: ${report.summary.HIGH}</span>
                     <span style="color:#f59e0b">Medium: ${report.summary.MEDIUM}</span>
                     <span style="color:#22c55e">Low: ${report.summary.LOW}</span>
+                    <span style="color:#6b7280">Info: ${report.summary.INFO}</span>
                 </div>
             </div>
         `;

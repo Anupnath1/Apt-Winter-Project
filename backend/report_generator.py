@@ -3,7 +3,11 @@ from typing import Dict, List, Optional
 
 def _normalize_severity(sev: str) -> str:
     if not sev: return "INFO"
-    return str(sev).upper()
+    s = str(sev).strip().upper()
+
+    if sev in ["INFORMATIONAL"]:
+        return "INFO"
+    return s
 
 def _calculate_risk(summary: Dict[str, int]) -> str:
     if summary.get("CRITICAL", 0) > 0: return "CRITICAL"
@@ -81,10 +85,11 @@ def generate_report_for_frontend(
     
     for f in all_findings:
         sev = f["severity"]
+
         if sev in summary:
             summary[sev] += 1
         else:
-            summary[sev] = 1 # Safety check if severity key missing from default summary
+            summary["INFO"] += 1 # Safety check if severity key missing from default summary
 
     return {
         "meta": {

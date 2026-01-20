@@ -71,11 +71,17 @@ class ZAPScanner:
 
         # 1. Manual Token Logic
         if manual_token:
-            logger.info("Using Manual Token.")
+            logger.info("Using Manual Token provided by user.")
             token_val = manual_token
-        else:
+            self._inject_auth_state([], token_val)
+            return
+
+        if not creds or not creds.get('username') or not creds.get('password'):
+            logger.info("No credentials provided; skipping authentication setup.")
+            return
             # 2. Selenium Logic
-            logger.info("Starting Selenium Automation...")
+        try:
+            logger.info("Credentials provided. Starting Selenium Automation...")
             config = AppConfig(
                 LOGIN_URL=self.target_url,
                 USERNAME=creds['username'],
@@ -96,7 +102,11 @@ class ZAPScanner:
             token_val = self._extract_best_token(tokens)
 
         # 3. Inject into ZAP
-        self._inject_auth_state(cookies, token_val)
+            self._inject_auth_state(cookies, token_val)
+        except Exception as e:
+            logger.critical(f"Authentication automation failed: {e}. ")
+            raise RuntimeError(f"Authentication automation failed: {e}. ")
+        
 
     def _inject_auth_state(self, cookies: list, token_val: Optional[str]):
         """Configures ZAP Global Replacer Rules."""
