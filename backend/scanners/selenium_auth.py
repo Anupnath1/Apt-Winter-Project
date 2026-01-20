@@ -28,7 +28,7 @@ class AppConfig:
     USERNAME: str
     PASSWORD: str
     TENANT_VALUE: str
-    TENANT_IDENTIFIER: str = "tenantid"
+    # TENANT_IDENTIFIER: str = "tenantid"
     TIMEOUT: int = 30
     HEADLESS: bool = False
     PROXY: Optional[str] = None  # REQUIRED for ZAP
@@ -46,6 +46,14 @@ class KendoUtils:
         except Exception:
             logger.info("Standard click failed, attempting JS click.")
             self.driver.execute_script("arguments[0].click();", element)
+
+    def _type_and_enter(self, input_element: WebElement, value: str):
+        """Fallback: Just type and hit enter."""
+        input_element.clear()
+        input_element.send_keys(value)
+        time.sleep(0.5)
+        input_element.send_keys(Keys.ENTER)
+        logger.info("Sent keys and ENTER to tenant input.")
 
     def kendo_search_and_select(self, identifier: str, value: str):
         try:
@@ -67,6 +75,10 @@ class KendoUtils:
                 pass
  
             input_element = wrapper.find_element(By.TAG_NAME, "input")
+            
+            # Use the new helper if preferred, or keep explicit logic. 
+            # Keeping explicit logic here to minimize changes as requested, 
+            # but _type_and_enter is now available in the class.
             input_element.clear()
             for char in value:
                 input_element.send_keys(char)
@@ -100,21 +112,20 @@ class DefenderAutomation:
         options = Options()
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--ignore-certificate-errors")
-        options.add_argument("--allow-insecure-localhost") # Added for ZAP stability
+        options.add_argument("--allow-insecure-localhost") 
         options.add_argument("--start-maximized")
         options.page_load_strategy = "eager"
         
         if self.config.HEADLESS:
             options.add_argument("--headless=new")
 
-        # --- REQUIRED: PROXY CONFIG FOR ZAP ---
         if self.config.PROXY:
             clean_proxy = self.config.PROXY.replace("http://", "").replace("https://", "")
             logger.info(f"Setting Proxy: {clean_proxy}")
             options.add_argument(f"--proxy-server={clean_proxy}")
 
         return webdriver.Chrome(options=options)
- 
+
     def bypass_ssl_warning(self):
         try:
             time.sleep(2)
@@ -124,20 +135,19 @@ class DefenderAutomation:
             pass
 
     def fill_credentials(self):
-        """ YOUR TESTED LOGIC """
         logger.info("Filling credentials...")
         try:
             user_selectors = [
                 "input[id='username']", "input[name='username']",
                 "input[id='user']", "input[name='login']", "input[type='email']",
-                "input[formcontrolname='email']" # Added common Angular selector
+                "input[formcontrolname='email']"
             ]
             pass_selectors = [
                 "input[id='password']", "input[name='password']",
                 "input[id='pwd']", "input[type='password']",
                 "input[formcontrolname='password']"
             ]
- 
+
             user_field = None
             for selector in user_selectors:
                 try:
@@ -166,9 +176,9 @@ class DefenderAutomation:
         logger.info("Falling back to positional input detection.")
         inputs = self.wait.until(
             lambda d: [i for i in d.find_elements(By.TAG_NAME, "input")
-                        if i.is_displayed() and i.get_attribute('type') not in ['hidden', 'submit', 'button', 'checkbox', 'radio']]
+                       if i.is_displayed() and i.get_attribute('type') not in ['hidden', 'submit', 'button', 'checkbox', 'radio']]
         )
- 
+
         login_inputs = [
             inp for inp in inputs
             if "search" not in (inp.get_attribute("name") or "").lower()
@@ -184,7 +194,6 @@ class DefenderAutomation:
             raise Exception("Could not identify Username/Password fields by ID or Position.")
 
     def submit_login(self):
-        """ YOUR TESTED LOGIC """
         logger.info("Attempting to submit login form...")
         button_selectors = [
             "//*[@id='submit']",
@@ -218,7 +227,6 @@ class DefenderAutomation:
                 logger.error(f"Failed to submit via ENTER key: {e}")
 
     def _dump_all_storage(self) -> Dict[str, str]:
-        """ REQUIRED FOR ZAP: Grabs tokens so we can inject them later """
         return self.driver.execute_script("""
             var items = {};
             try {
@@ -244,21 +252,34 @@ class DefenderAutomation:
             logger.info(f"Navigating to: {self.config.LOGIN_URL}")
             self.driver.get(self.config.LOGIN_URL)
             self.bypass_ssl_warning()
- 
+
             self.fill_credentials()
- 
+
             # Tenant selection logic
             if self.config.TENANT_VALUE:
                 try:
-                    tenant_xpath = f"//kendo-combobox[@id='{self.config.TENANT_IDENTIFIER}' or @data-cy='{self.config.TENANT_IDENTIFIER}']"
-                    elements = self.driver.find_elements(By.XPATH, tenant_xpath)
-                    if elements and elements[0].is_displayed():
-                        self.kendo.kendo_search_and_select(self.config.TENANT_IDENTIFIER, self.config.TENANT_VALUE)
-                except Exception:
-                    logger.info("Tenant interaction skipped.")
+                    # UPDATED: Dynamic check for camelCase (tenantId) vs lowercase (tenantid)
+                    base_id = getattr(self.config, "TENANT_IDENTIFIER", "tenantid")
+                    possible_ids = [base_id, base_id.lower(), "tenantId"] 
+                    
+                    target_id = None
+                    for pid in possible_ids:
+                        xpath_check = f"//kendo-combobox[@id='{pid}' or @data-cy='{pid}']"
+                        if self.driver.find_elements(By.XPATH, xpath_check):
+                            target_id = pid
+                            logger.info(f"Detected Tenant ID: {target_id}")
+                            break
+                    
+                    if target_id:
+                        self.kendo.kendo_search_and_select(target_id, self.config.TENANT_VALUE)
+                    else:
+                        logger.warning(f"Tenant element not found checking variants: {possible_ids}")
+
+                except Exception as e:
+                    logger.error(f"Tenant interaction skipped due to error: {e}")
 
             self.submit_login()
- 
+
             # Success check
             logger.info("Waiting for redirection or storage...")
             try:
@@ -268,14 +289,14 @@ class DefenderAutomation:
             except Exception:
                 logger.warning("Timeout waiting for redirect/storage.")
 
-            # Capture the Tokens ---
+            # Capture the Tokens
             time.sleep(5) 
             auth_data["cookies"] = self.driver.get_cookies()
             auth_data["tokens"] = self._dump_all_storage()
 
             logger.info(f"Login Flow Completed. Captured {len(auth_data['cookies'])} cookies and {len(auth_data['tokens'])} tokens.")
             return auth_data
- 
+
         except Exception as e:
             logger.error("Login process encountered an error: %s", e)
             try:

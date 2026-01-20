@@ -60,7 +60,7 @@ class ZAPScanner:
         self.zap.context.exclude_from_context(self.context_name, f".*signout.*")
 
     def perform_login_and_hook(self, creds: Dict[str, str], manual_token: Optional[str] = None):
-        logger.info("--- Phase 1: Authentication Setup ---")
+        logger.info("--- Authentication Start---")
         
         # Clean previous rules
         self._manage_replacer_rule("AuthCookieInjection", remove=True)
@@ -110,7 +110,7 @@ class ZAPScanner:
 
     def _inject_auth_state(self, cookies: list, token_val: Optional[str]):
         """Configures ZAP Global Replacer Rules."""
-        logger.info("--- Phase 2: Injecting Session State into ZAP ---")
+        logger.info("--- Injecting Session State into ZAP ---")
 
         # Inject Cookies
         if cookies:
@@ -158,11 +158,41 @@ class ZAPScanner:
             except Exception as e:
                 logger.error(f"Failed to set replacer rule {description}: {e}")
 
+    def _try_import_openapi(self, target: str) -> bool:
+        try:
+            self.zap.openapi.url_import_url 
+        except Exception:
+            logger.warning("ZAP OpenAPI add-on is not installed or accessible. Skipping definition import.")
+            return False
+        logger.info(f"Attempting OpenAPI import for: {target}")
+        try:
+            self.zap.openapi.import_url(target)
+            logger.info("OpenAPI definition imported successfully via direct URL.")
+            return True
+        except Exception:
+            common_paths = ["/swagger/v1/swagger.json", "/v2/api-docs", "/openapi.json"]
+            base = self.base_url.rstrip("/")
+            for path in common_paths:
+                guess_url = f"{base}{path}"
+                try:
+                    logger.info(f"Guessing OpenAPI definition at: {guess_url}")
+                    self.zap.openapi.import_url(guess_url)
+                    logger.info(f"OpenAPI definition found and imported: {guess_url}")
+                    return True
+                except Exception:
+                    continue
+        logger.warning("Could not auto-import OpenAPI definition. Falling back to standard spider.")
+        return False
+
     def run_scans(self):
         # Scan the BASE URL, not the Login URL, to find the dashboard
         scan_target = self.base_url 
+        imported_api = False
 
-        logger.info(f"--- Phase 3: Spidering {scan_target} ---")
+        logger.info(f"checking for api definition")
+        imported_api = self._try_import_openapi(scan_target)
+
+        logger.info(f"--- Start Spidering {scan_target} ---")
         scan_id = self.zap.spider.scan(scan_target, contextname=self.context_name)
         self._poll_status(self.zap.spider, scan_id, "Spider")
 
@@ -177,11 +207,11 @@ class ZAPScanner:
             time.sleep(5)
         logger.info("AJAX Spider complete.")
 
-        logger.info(f"--- Phase 4: Active Scanning {scan_target} ---")
+        logger.info(f"--- Active Scanning {scan_target} ---")
         self.zap.ascan.enable_all_scanners()
         
         # Scan recursively from the root
-        scan_id = self.zap.ascan.scan(scan_target, contextid=self.context_id, recurse=True)
+        scan_id = self.zap.ascan.scan(self.base_url, contextid=self.context_id, recurse=True)
         self._poll_status(self.zap.ascan, scan_id, "Active Scan")
 
     def _poll_status(self, component, scan_id, name):

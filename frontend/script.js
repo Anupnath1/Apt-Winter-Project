@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let summaryHtml = `
             <div class="card info" style="border-left-color: #2563eb;">
                 <h2>Scan Complete: ${report.meta.target}</h2>
-                <p>Risk Level: <strong>${report.meta.risk_level}</strong></p>
+               
                 <div style="display:flex; gap:15px; margin-top:10px;">
                     <span style="color:#dc2626">High: ${report.summary.HIGH}</span>
                     <span style="color:#f59e0b">Medium: ${report.summary.MEDIUM}</span>

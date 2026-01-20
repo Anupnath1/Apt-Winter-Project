@@ -9,11 +9,11 @@ def _normalize_severity(sev: str) -> str:
         return "INFO"
     return s
 
-def _calculate_risk(summary: Dict[str, int]) -> str:
-    if summary.get("CRITICAL", 0) > 0: return "CRITICAL"
-    if summary.get("HIGH", 0) > 0: return "HIGH"
-    if summary.get("MEDIUM", 0) > 0: return "MEDIUM"
-    return "LOW"
+# def _calculate_risk(summary: Dict[str, int]) -> str:
+#     if summary.get("CRITICAL", 0) > 0: return "CRITICAL"
+#     if summary.get("HIGH", 0) > 0: return "HIGH"
+#     if summary.get("MEDIUM", 0) > 0: return "MEDIUM"
+#     return "LOW"
 
 def generate_report_for_frontend(
     target: str,
@@ -95,7 +95,7 @@ def generate_report_for_frontend(
         "meta": {
             "target": target,
             "generated_at": datetime.utcnow().isoformat(),
-            "risk_level": _calculate_risk(summary),
+            # "risk_level": _calculate_risk(summary),
             "total_findings": len(all_findings)
         },
         "summary": summary,
