@@ -11,8 +11,12 @@ from dotenv import load_dotenv
 try:
     from .selenium_auth import DefenderAutomation, AppConfig
 except ImportError:
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from selenium_auth import DefenderAutomation, AppConfig
+    # Fallback if running as a standalone script without the package structure
+    try:
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from selenium_auth import DefenderAutomation, AppConfig
+    except ImportError:
+        pass # Handle gracefully if completely missing, though code implies it exists
 
 load_dotenv()
 
@@ -28,7 +32,7 @@ logger = logging.getLogger("ZAP_Orchestrator")
 class ZAPScanner:
     def __init__(self, target_url: str):
         self.target_url = target_url
-        self.base_url = self._get_base_url(target_url)  # NEW: Calculate the root domain
+        self.base_url = self._get_base_url(target_url)  # Keep base for scope
         self.zap = ZAPv2(apikey=ZAP_API_KEY, proxies={"http": ZAP_PROXY_URL, "https": ZAP_PROXY_URL})
         self.context_name = "TargetContext"
         self.context_id = None
@@ -52,8 +56,10 @@ class ZAPScanner:
         self.zap.core.new_session(name="Automated_Scan", overwrite=True)
         self.context_id = self.zap.context.new_context(self.context_name)
         
-        # FIX: Scope is now the Base URL (e.g. site.com.*) not just login page
+        # Include base domain in scope
         self.zap.context.include_in_context(self.context_name, f"{self.base_url}.*")
+        # Explicitly include the target URL in case it differs slightly or handles redirects oddly
+        self.zap.context.include_in_context(self.context_name, f"{self.target_url}.*")
         
         # Optional: Exclude logout to prevent killing the session
         self.zap.context.exclude_from_context(self.context_name, f".*logout.*")
@@ -79,7 +85,8 @@ class ZAPScanner:
         if not creds or not creds.get('username') or not creds.get('password'):
             logger.info("No credentials provided; skipping authentication setup.")
             return
-            # 2. Selenium Logic
+
+        # 2. Selenium Logic
         try:
             logger.info("Credentials provided. Starting Selenium Automation...")
             config = AppConfig(
@@ -101,7 +108,7 @@ class ZAPScanner:
             
             token_val = self._extract_best_token(tokens)
 
-        # 3. Inject into ZAP
+            # 3. Inject into ZAP
             self._inject_auth_state(cookies, token_val)
         except Exception as e:
             logger.critical(f"Authentication automation failed: {e}. ")
@@ -159,62 +166,99 @@ class ZAPScanner:
                 logger.error(f"Failed to set replacer rule {description}: {e}")
 
     def _try_import_openapi(self, target: str) -> bool:
+        """Attempts to import OpenAPI definitions."""
         try:
             self.zap.openapi.url_import_url 
         except Exception:
             logger.warning("ZAP OpenAPI add-on is not installed or accessible. Skipping definition import.")
             return False
+
+        # Attempt 1: Direct URL (works if target IS the json/yaml file)
         logger.info(f"Attempting OpenAPI import for: {target}")
         try:
             self.zap.openapi.import_url(target)
             logger.info("OpenAPI definition imported successfully via direct URL.")
             return True
         except Exception:
-            common_paths = ["/swagger/v1/swagger.json", "/v2/api-docs", "/openapi.json"]
+            # If target is Swagger UI (HTML), import will fail. try guessing standard paths.
+            common_paths = [
+                "/swagger/v1/swagger.json", 
+                "/v2/api-docs", 
+                "/openapi.json", 
+                "/swagger/doc.json",
+                "/api-docs"
+            ]
+            
+            # Construct guesses based on base_url, not just the deep link
             base = self.base_url.rstrip("/")
+            
             for path in common_paths:
                 guess_url = f"{base}{path}"
                 try:
-                    logger.info(f"Guessing OpenAPI definition at: {guess_url}")
+                    logger.debug(f"Guessing OpenAPI definition at: {guess_url}")
                     self.zap.openapi.import_url(guess_url)
                     logger.info(f"OpenAPI definition found and imported: {guess_url}")
                     return True
                 except Exception:
                     continue
-        logger.warning("Could not auto-import OpenAPI definition. Falling back to standard spider.")
+                    
+        logger.warning("Could not auto-import OpenAPI definition (Target might be HTML UI, not JSON). Falling back to AJAX Spider.")
         return False
 
     def run_scans(self):
-        # Scan the BASE URL, not the Login URL, to find the dashboard
-        scan_target = self.base_url 
-        imported_api = False
+        # FIX 1: Use the SPECIFIC target URL provided by user (e.g., .../swagger/index.html)
+        # instead of just the base_url. This ensures deep links are actually visited.
+        scan_seed = self.target_url 
+        
+        logger.info(f"checking for api definition at {scan_seed}")
+        self._try_import_openapi(scan_seed)
 
-        logger.info(f"checking for api definition")
-        imported_api = self._try_import_openapi(scan_target)
-
-        logger.info(f"--- Start Spidering {scan_target} ---")
-        scan_id = self.zap.spider.scan(scan_target, contextname=self.context_name)
+        # Standard Spider
+        logger.info(f"--- Start Spidering {scan_seed} ---")
+        # Explicitly spider the seed URL.
+        scan_id = self.zap.spider.scan(scan_seed, contextname=self.context_name)
         self._poll_status(self.zap.spider, scan_id, "Spider")
 
-        logger.info("Starting AJAX Spider (Critical for React/Angular)...")
-        self.zap.ajaxSpider.scan(scan_target, contextname=self.context_name)
+        # AJAX Spider
+        # FIX 2: AJAX Spider must run on the specific deep link (Swagger UI) 
+        # so it renders the JS and finds the API endpoints.
+        logger.info(f"Starting AJAX Spider on {scan_seed} (Critical for Swagger UI)...")
         
-        timeout = time.time() + 300 
+        # Configuration for better AJAX results
+        self.zap.ajaxSpider.set_option_click_default_elems("true")
+        self.zap.ajaxSpider.set_option_click_elems_once("true")
+        
+        # Use subtreeOnly=True if you want to strictly stay within the target path, 
+        # but False is safer to find resources loaded from root.
+        self.zap.ajaxSpider.scan(scan_seed, contextname=self.context_name, subtreeonly=False)
+        
+        timeout = time.time() + 600 # Increased timeout for heavy JS apps
         while self.zap.ajaxSpider.status == "running":
             if time.time() > timeout:
                 self.zap.ajaxSpider.stop()
+                logger.warning("AJAX Spider timed out.")
                 break
+            # Optional: Print number of URLs found to ensure it's working
+            # count = self.zap.ajaxSpider.number_of_results
+            # logger.info(f"AJAX Spider running... Found {count} URLs so far")
             time.sleep(5)
+        
         logger.info("AJAX Spider complete.")
 
-        logger.info(f"--- Active Scanning {scan_target} ---")
+        # Active Scan
+        # We scan the base_url recursively to cover everything found by the spiders
+        logger.info(f"--- Active Scanning {self.base_url} ---")
         self.zap.ascan.enable_all_scanners()
         
-        # Scan recursively from the root
+        # Recurse from base to catch everything found
         scan_id = self.zap.ascan.scan(self.base_url, contextid=self.context_id, recurse=True)
         self._poll_status(self.zap.ascan, scan_id, "Active Scan")
 
     def _poll_status(self, component, scan_id, name):
+        if not scan_id:
+            logger.warning(f"{name} did not return a scan ID. It might have finished instantly or failed to start.")
+            return
+
         while True:
             try:
                 status = int(component.status(scan_id))
@@ -228,30 +272,27 @@ class ZAPScanner:
 
     def get_results(self) -> Dict[str, Any]:
         try:
+            # Alert retrieval needs to be broad to catch all relevant alerts
             raw_alerts = self.zap.core.alerts(baseurl=self.base_url)
             grouped_alerts = {}
 
             for alert in raw_alerts:
-                # Use vulnerability name as the unique key
                 name = alert.get("alert") or alert.get("name")
                 if not name:
                     continue
 
                 if name not in grouped_alerts:
-                    # Create new entry if it doesn't exist
                     grouped_alerts[name] = {
                         "alert": name,
                         "risk": alert.get("risk", "Informational"),
                         "description": alert.get("description", ""),
                         "solution": alert.get("solution", ""),
-                        "urls": set()  # Use set to handle duplicate URLs automatically
+                        "urls": set()
                     }
                 
-                # Add the URL to the set
                 if alert.get("url"):
                     grouped_alerts[name]["urls"].add(alert["url"])
 
-            # Convert sets to lists for JSON response
             final_alerts = []
             for item in grouped_alerts.values():
                 item["urls"] = sorted(list(item["urls"]))

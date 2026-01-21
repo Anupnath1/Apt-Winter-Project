@@ -125,14 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
         riskFilter.value = 'ALL';
         
         let summaryHtml = `
-            <div class="card info" style="border-left-color: #2563eb;">
+            <div class="card info" style="border-left-color: var(--primary);">
                 <h2>Scan Complete: ${report.meta.target}</h2>
                
                 <div style="display:flex; gap:15px; margin-top:10px;">
-                    <span style="color:#dc2626">High: ${report.summary.HIGH}</span>
-                    <span style="color:#f59e0b">Medium: ${report.summary.MEDIUM}</span>
-                    <span style="color:#22c55e">Low: ${report.summary.LOW}</span>
-                    <span style="color:#6b7280">Info: ${report.summary.INFO}</span>
+                    <span style="color:var(--danger)">High: ${report.summary.HIGH}</span>
+                    <span style="color:var(--warning)">Medium: ${report.summary.MEDIUM}</span>
+                    <span style="color:var(--success)">Low: ${report.summary.LOW}</span>
+                    <span style="color:var(--muted)">Info: ${report.summary.INFO}</span>
                 </div>
             </div>
         `;
@@ -150,10 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawSev = (f.severity || 'INFO').toUpperCase();
             const sevClass = rawSev.toLowerCase();
             
-            // --- NEW: Handle URL List vs Single URL ---
+            // --- Handle URL List vs Single URL ---
             let urlSection = '';
             
-            // Check if 'urls' exists and is a non-empty array (Active Scan)
             if (f.urls && Array.isArray(f.urls) && f.urls.length > 0) {
                 const urlListItems = f.urls.map(u => 
                     `<li><a href="${u}" target="_blank">${u}</a></li>`
@@ -166,9 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } else {
-                // Fallback for Passive Scan or Single URL
                 const singleUrl = f.url || 'N/A';
-                urlSection = `<p><strong>URL:</strong> <a href="${singleUrl}" target="_blank" style="color: #60a5fa;">${singleUrl}</a></p>`;
+                urlSection = `<p><strong>URL:</strong> <a href="${singleUrl}" target="_blank" style="color: var(--primary);">${singleUrl}</a></p>`;
             }
 
             return `
@@ -181,9 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     ${urlSection}
 
-                    <p><strong>Evidence:</strong> <code style="background:#333; padding:2px 4px; border-radius:3px;">${f.evidence || 'N/A'}</code></p>
+                    <p><strong>Evidence:</strong> <code class="evidence-code">${f.evidence || 'N/A'}</code></p>
                     <p><strong>Fix:</strong> ${f.recommendation}</p>
-                    <p style="font-size: 0.8em; color: #888; margin-top: 10px;">Source: ${f.source || 'Unknown'}</p>
+                    <p style="font-size: 0.8em; color: var(--muted); margin-top: 10px;">Source: ${f.source || 'Unknown'}</p>
                 </div>
             `;
         }).join('');
